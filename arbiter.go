@@ -8,8 +8,6 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
-
-	logging "github.com/sirupsen/logrus"
 )
 
 // Arbiter is tracer to manage lifecycle of goroutines.
@@ -29,23 +27,14 @@ type Arbiter struct {
 
 	preStop   func()
 	afterStop func()
-
-	log *logging.Entry
 }
 
 // NewWithParent creates a new arbiter atteched to specified parent arbiter.
 // The arbiter will be shut down by the parent or a call to Arbiter.Shutdown().
-func NewWithParent(parent *Arbiter, log *logging.Entry) *Arbiter {
-	if parent != nil && log == nil {
-		log = parent.log
-	}
-	if log == nil {
-		log = logging.WithField("module", "arbiter")
-	}
+func NewWithParent(parent *Arbiter) *Arbiter {
 	a := &Arbiter{
 		sigFibreExit: make(chan struct{}, 10),
 		sigOS:        make(chan os.Signal, 0),
-		log:          log,
 		lock:         make(chan struct{}, 1),
 		parent:       parent,
 	}
@@ -73,13 +62,8 @@ func NewWithParent(parent *Arbiter, log *logging.Entry) *Arbiter {
 }
 
 // New create a new arbiter.
-func New(log *logging.Entry) *Arbiter {
-	return NewWithParent(nil, log)
-}
-
-// Log return Entry of arbiter.
-func (a *Arbiter) Log() *logging.Entry {
-	return a.log
+func New() *Arbiter {
+	return NewWithParent(nil)
 }
 
 // NumGoroutine returns the number of goroutines currently exists on Arbiter tree.

@@ -1,0 +1,2 @@
+# arbiter
+Manage goroutine lifecycles.

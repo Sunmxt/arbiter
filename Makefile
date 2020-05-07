@@ -6,12 +6,15 @@ PROJECT_ROOT:=$(shell pwd)
 BUILD_DIR:=build
 REVISION:=$(shell git rev-parse HEAD || cat REVISION)
 
+ifeq ($(USE_GLOBAL_GOPATH),)
 export GOPATH:=$(PROJECT_ROOT)/$(BUILD_DIR)
-export PATH:=$(PROJECT_ROOT)/bin:$(GOPATH)/bin:$(PATH)
+endif
+
+export PATH:=$(GOPATH)/bin:$(PATH)
 
 COVERAGE_DIR:=coverage
 
-all: coverage
+all: cover
 
 $(COVERAGE_DIR):
 	mkdir -p $(COVERAGE_DIR)
@@ -31,7 +34,7 @@ cover: coverage test
 	go tool cover -html=$(COVERAGE_DIR)/coverage.out -o $(COVERAGE_DIR)/coverage.html
 
 test: coverage
-	go test -v -bench=. -benchtime=2x -coverprofile=$(COVERAGE_DIR)/coverage.out -cover ./...
+	go test -v -coverprofile=$(COVERAGE_DIR)/coverage.out -cover ./
 	go tool cover -func=$(COVERAGE_DIR)/coverage.out
 
 cloc:

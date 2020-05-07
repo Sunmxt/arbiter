@@ -51,11 +51,15 @@ func NewWithParent(parent *Arbiter) *Arbiter {
 
 	if parent != nil {
 		// join parent.
+		parent.children.Store(a, struct{}{})
 		parent.Go(func() {
-			parent.children.Store(a, struct{}{})
 			a.Join()
 			parent.children.Delete(a)
 		})
+	} else {
+		go func() {
+			a.Join()
+		}()
 	}
 
 	return a
@@ -102,16 +106,16 @@ func (a *Arbiter) TickGo(proc func(func(), time.Time), period time.Duration, bru
 
 	a.Go(func() {
 		defer ticker.Stop()
-		defer cancel()
 		<-tickCtx.Done()
+		ticker.Stop()
 	})
 
 	for idx := uint32(0); idx < brust; idx++ {
 		a.Go(func() {
 			for {
 				select {
-				case <-ticker.C:
-					a.Do(func() { proc(cancel, time.Now().Add(period)) })
+				case t := <-ticker.C:
+					a.Do(func() { proc(cancel, t.Add(period)) })
 
 				case <-tickCtx.Done():
 					return
@@ -172,8 +176,14 @@ func (a *Arbiter) Join() {
 	<-a.lock
 	defer func() { a.lock <- struct{}{} }()
 
-	if a.ShouldRun() {
-		a.Go(func() { <-a.Exit() })
+	if a.NumGoroutine() > 0 || a.ShouldRun() {
+		a.Go(func() {
+			<-a.Exit()
+			preStop := a.preStop
+			if preStop != nil {
+				preStop()
+			}
+		})
 
 		c := a.runningCount
 		for c > 0 {
@@ -184,10 +194,6 @@ func (a *Arbiter) Join() {
 			case <-a.sigOS:
 				if a.ShouldRun() {
 					a.shutdown()
-					preStop := a.preStop
-					if preStop != nil {
-						preStop()
-					}
 				}
 			}
 		}

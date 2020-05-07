@@ -3,6 +3,9 @@
 *Derived from project [**CrossMesh**](https://github.com/Sunmxt/utt)*
 
 
+[![golang](https://img.shields.io/badge/golang->%3D1.9-blue)](https://golang.org/)
+[![Build Status](https://travis-ci.com/Sunmxt/arbiter.svg?branch=master)](https://travis-ci.com/Sunmxt/arbiter)
+[![codecov](https://codecov.io/gh/Sunmxt/arbiter/branch/master/graph/badge.svg)](https://codecov.io/gh/Sunmxt/arbiter)
 
 ## Intro
 

@@ -138,12 +138,7 @@ func (a *Arbiter) Do(proc func()) *Arbiter {
 
 // ShouldRun is called by goroutines traced by Arbiter, indicating whether the goroutines can continue to execute.
 func (a *Arbiter) ShouldRun() bool {
-	select {
-	case <-a.ctx.Done():
-		return false
-	default:
-	}
-	return true
+	return a.ctx.Err() == nil
 }
 
 // Exit returns a channel that is closed when arbiter is shutdown.

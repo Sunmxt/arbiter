@@ -80,7 +80,12 @@ func TestArbiter(t *testing.T) {
 		assert.Equal(t, int32(11), r.NumGoroutine())
 		assert.Equal(t, int32(30), p.NumGoroutine())
 
+		assert.True(t, l.ShouldRun())
+		assert.True(t, r.ShouldRun())
 		p.Shutdown()
+		assert.False(t, l.ShouldRun())
+		assert.False(t, r.ShouldRun())
+
 		p.Join()
 		l.Join()
 		r.Join()

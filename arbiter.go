@@ -16,8 +16,9 @@ type Arbiter struct {
 
 	runningCount int32
 
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctx        context.Context
+	cancelFunc context.CancelFunc
+	ended      uint32
 
 	sigFibreExit chan struct{}
 	sigOS        chan os.Signal
@@ -37,6 +38,7 @@ func NewWithParent(parent *Arbiter) *Arbiter {
 		sigOS:        make(chan os.Signal, 0),
 		lock:         make(chan struct{}, 1),
 		parent:       parent,
+		ended:        0,
 	}
 	a.lock <- struct{}{}
 
@@ -45,15 +47,25 @@ func NewWithParent(parent *Arbiter) *Arbiter {
 		parentCtx = parent.ctx
 	} else {
 		parentCtx = context.Background()
-
 	}
-	a.ctx, a.cancel = context.WithCancel(parentCtx)
+	a.ctx, a.cancelFunc = context.WithCancel(parentCtx)
 
 	if parent != nil {
+		select {
+		case <-a.ctx.Done():
+			a.ended = 1
+		default:
+		}
+
 		// join parent.
 		parent.children.Store(a, struct{}{})
 		parent.Go(func() {
 			a.Join()
+
+			// Corner case: when a new arbiter is creating with a shutting down parent, `ended` flag may be not correctly set.
+			// Passively set `ended` flag prevent this case.
+			atomic.StoreUint32(&a.ended, 1)
+
 			parent.children.Delete(a)
 		})
 	} else {
@@ -136,9 +148,9 @@ func (a *Arbiter) Do(proc func()) *Arbiter {
 	return a
 }
 
-// ShouldRun is called by goroutines traced by Arbiter, indicating whether the goroutines can continue to execute.
+// ShouldRun is called by goroutines traced by Arbiter, indicating whether the goroutines should continue to execute.
 func (a *Arbiter) ShouldRun() bool {
-	return a.ctx.Err() == nil
+	return atomic.LoadUint32(&a.ended) < 1
 }
 
 // Exit returns a channel that is closed when arbiter is shutdown.
@@ -156,8 +168,18 @@ func (a *Arbiter) Shutdown() {
 	a.Do(func() { a.shutdown() })
 }
 
+func (a *Arbiter) fastShutdown() {
+	atomic.StoreUint32(&a.ended, 1)
+	a.children.Range(func(k, v interface{}) bool {
+		child := k.(*Arbiter)
+		child.fastShutdown()
+		return true
+	})
+}
+
 func (a *Arbiter) shutdown() {
-	a.cancel()
+	a.fastShutdown()
+	a.cancelFunc()
 }
 
 // StopOSSignals chooses OS signals to shut the arbiter.
